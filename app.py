@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, jsonify, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
 import random
+import sqlite3
 
 # create an instance of the Flask class
 app = Flask(__name__)
@@ -27,15 +28,17 @@ class QuestionList(db.Model):
     title = db.Column(db.String(100), nullable=False)
     minutes = db.Column(db.String(100), nullable=False)
     tablename = db.Column(db.String(100), nullable=False)
+    resulttable = db.Column(db.String(100), nullable=False)
     qstart = db.Column(db.String(100), nullable=False)
     qend = db.Column(db.String(100), nullable=False)
     # Add more fields as needed
 
-    def __init__(self, fid, title, minutes, tablename, qstart, qend):
+    def __init__(self, fid, title, minutes, tablename, resulttable, qstart, qend):
         self.fid = fid
         self.title = title
         self.minutes = minutes
         self.tablename = tablename
+        self.resulttable = resulttable
         self.qstart = qstart
         self.qend = qend
 
@@ -148,14 +151,18 @@ def create_dynamic_table(entry_id):
     class DynamicTable(db.Model):
         __tablename__ = table_name
         id = db.Column(db.Integer, primary_key=True)
-        field1 = db.Column(db.String(100), nullable=False)
-        field2 = db.Column(db.String(100), nullable=False)
-        field3 = db.Column(db.String(100), nullable=False)
-        field4 = db.Column(db.String(100), nullable=False)
-        field5 = db.Column(db.String(100), nullable=False)
-        field6 = db.Column(db.String(100), nullable=False)
-        # Add more fields as needed
     return DynamicTable
+
+
+def create_result_table(entry_id):
+    result_table = f"result_table_{entry_id}"
+
+    class DynamicTableResult(db.Model):
+        __tablename__ = result_table
+        id = db.Column(db.Integer, primary_key=True)
+        sname = db.Column(db.String(100))
+        sscore = db.Column(db.Integer)
+    return DynamicTableResult
 
 
 # create excel quiz for catagorysubject
@@ -174,6 +181,8 @@ def upload():
 
         entry_id = random.randrange(1, 9999999)
         DynamicTable = create_dynamic_table(entry_id)
+        DynamicTableResult = create_result_table(entry_id)
+        DynamicTableResult.__table__.create(db.engine)
         # Create the table in the database
         DynamicTable.__table__.create(db.engine)
         file = request.files['inputFile']
@@ -183,7 +192,7 @@ def upload():
                   if_exists='replace', index=False)  # Fix here
 
         student = QuestionList(fid=fid, title=title,
-                               minutes=minutes, tablename=DynamicTable.__tablename__, qstart='1', qend='2')
+                               minutes=minutes, tablename=DynamicTable.__tablename__, resulttable=DynamicTableResult.__tablename__, qstart='1', qend='2')
         db.session.add(student)
         db.session.commit()
 
@@ -191,6 +200,18 @@ def upload():
         return redirect(url_for('get_subject', id=id))
     else:
         return redirect(url_for('get_subject'))
+
+
+# fetch data from questionlist table
+@app.route('/get_data/<string:entry_id>', methods=['GET'])
+def get_data(entry_id):
+    # use sqlite to get data from database
+    conn = sqlite3.connect('instance/db.sqlite')
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT * FROM {entry_id}")
+    data = cursor.fetchall()
+    # return data
+    return render_template('show_quiz.html', data=data)
 
 
 if __name__ == '__main__':

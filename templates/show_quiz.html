@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <h1>Simple Radio Button Quiz</h1>
+    <form id="quizForm">
+        {% for entry in data %}
+        <h3>Question {{entry[0]}}:{{ entry[1] }} ?</h3>
+        <label>
+            <input type="radio" name="{{entry[0]}}" value="{{ entry[2] }}"> {{ entry[2] }}
+        </label><br>
+        <label>
+            <input type="radio" name="{{entry[0]}}" value="{{ entry[3] }}"> {{ entry[3] }}
+        </label><br>
+        <label>
+            <input type="radio" name="{{entry[0]}}" value="{{ entry[4] }}"> {{ entry[4] }}
+        </label><br>
+        <label>
+            <input type="radio" name="{{entry[0]}}" value="{{ entry[5] }}"> {{ entry[5] }}
+        </label><br>
+        {% endfor %}
+
+        <br>
+        <input type="button" value="Submit" onclick="checkAnswers()">
+    </form>
+
+    <script>
+        function checkAnswers() {
+            const quizForm = document.getElementById("quizForm");
+            const formData = new FormData(quizForm);
+            const answers = {};
+
+            // Loop through the form data and collect selected answers for each question
+            for (const entry of formData.entries()) {
+                const [name, value] = entry;
+                if (answers[name]) {
+                    answers[name].push(value);
+                } else {
+                    answers[name] = [value];
+                }
+            }
+
+            // Log the answers in the console
+            console.log("Selected Answers:", answers);
+        }
+    </script>
+</body>
+
+</html>
