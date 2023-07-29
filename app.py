@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
+import pandas as pd
+import random
 
 # create an instance of the Flask class
 app = Flask(__name__)
@@ -13,6 +15,30 @@ app.secret_key = 'yoursecretkeyhere'
 
 # initialize the database instance
 db = SQLAlchemy(app)
+
+# create a model for questions
+
+
+# create students model
+class QuestionList(db.Model):
+    __tablename__ = 'QuestionList'
+    id = db.Column(db.Integer, primary_key=True)
+    fid = db.Column(db.String(100), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    minutes = db.Column(db.String(100), nullable=False)
+    tablename = db.Column(db.String(100), nullable=False)
+    qstart = db.Column(db.String(100), nullable=False)
+    qend = db.Column(db.String(100), nullable=False)
+    # Add more fields as needed
+
+    def __init__(self, fid, title, minutes, tablename, qstart, qend):
+        self.fid = fid
+        self.title = title
+        self.minutes = minutes
+        self.tablename = tablename
+        self.qstart = qstart
+        self.qend = qend
+
 
 # Assuming you have imported the required modules and set up the app and db instances.
 
@@ -94,6 +120,77 @@ def show_categories():
     categories = CreateCategory.query.order_by(
         CreateCategory.catagory, CreateCategory.catagoryLavel).all()
     return render_template('show_catagory.html', categories=categories)
+
+
+# # show catagorySubject by catagoryLavel
+@app.route('/show_catagory/<catagoryLavel>', methods=['GET'])
+def show_catagory(catagoryLavel):
+    categories = CreateCategory.query.filter(
+        (CreateCategory.catagoryLavel == catagoryLavel) | (
+            CreateCategory.catagory == catagoryLavel)
+    ).order_by(CreateCategory.catagorySubject).all()
+
+    return render_template('show_catagory_level.html', categories=categories)
+
+
+# show catagorySubject by catagoryLavel
+@app.route('/<id>')
+def get_subject(id):
+    subject = CreateCategory.query.filter_by(id=id).first()
+    showQuestions = QuestionList.query.filter_by(fid=id).all()
+    return render_template('subject.html', subject=subject, showQuestions=showQuestions)
+
+
+# create a dynameic table
+def create_dynamic_table(entry_id):
+    table_name = f"new_table_{entry_id}"
+
+    class DynamicTable(db.Model):
+        __tablename__ = table_name
+        id = db.Column(db.Integer, primary_key=True)
+        field1 = db.Column(db.String(100), nullable=False)
+        field2 = db.Column(db.String(100), nullable=False)
+        field3 = db.Column(db.String(100), nullable=False)
+        field4 = db.Column(db.String(100), nullable=False)
+        field5 = db.Column(db.String(100), nullable=False)
+        field6 = db.Column(db.String(100), nullable=False)
+        # Add more fields as needed
+    return DynamicTable
+
+
+# create excel quiz for catagorysubject
+
+
+@app.route('/upload', methods=['GET', 'POST'])
+def upload():
+    # save excel data to database
+    if request.method == 'POST':
+        id = request.form['id']
+
+        # another data for questionlist
+        fid = request.form['id']
+        title = request.form['title']
+        minutes = request.form['minutes']
+
+        entry_id = random.randrange(1, 9999999)
+        DynamicTable = create_dynamic_table(entry_id)
+        # Create the table in the database
+        DynamicTable.__table__.create(db.engine)
+        file = request.files['inputFile']
+        # file.save(file.filename)
+        df = pd.read_excel(file.filename)
+        df.to_sql(DynamicTable.__tablename__, con=db.engine,
+                  if_exists='replace', index=False)  # Fix here
+
+        student = QuestionList(fid=fid, title=title,
+                               minutes=minutes, tablename=DynamicTable.__tablename__, qstart='1', qend='2')
+        db.session.add(student)
+        db.session.commit()
+
+        flash('Record was successfully added')
+        return redirect(url_for('get_subject', id=id))
+    else:
+        return redirect(url_for('get_subject'))
 
 
 if __name__ == '__main__':
